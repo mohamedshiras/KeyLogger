@@ -1,5 +1,0 @@
- [Key.ctrl_l]  [Key.ctrl_l]  [Key.ctrl_l]  [Key.ctrl_l]  [Key.cmd] 2 [Key.ctrl_l]  [Key.shift_r] 
-
-done  [Key.shift_r] ?
-
- [Key.cmd] 2ddddhijbdbdjdbjbdjbdjebdjhwdoes m y kjdkjdbedjewdkjedekjnd [Key.ctrl_l]  [Key.alt_l]
